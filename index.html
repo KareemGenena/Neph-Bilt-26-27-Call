@@ -114,14 +114,13 @@ const doctorColors = {
   "Siew": "#3a86ff"
 };
 
-// fallback color if new name appears
 function getColor(name) {
   return doctorColors[name] || "#666";
 }
 
-// ----------- DATA -----------
+// ----------- GENERAL DATA -----------
 
-const generalData = [ /* FULL DATA FROM PRIOR MESSAGE */ 
+const generalData = [
   {start:"2026-07-02", end:"2026-07-05", A:"Burgner", B:"Gardner", C:"Burdick"},
   {start:"2026-07-06", end:"2026-07-12", A:"Burgner", B:"Gardner", C:"Burdick"},
   {start:"2026-07-13", end:"2026-07-19", A:"Triozzi", B:"Manolopoulou", C:"Genena"},
@@ -177,18 +176,27 @@ const generalData = [ /* FULL DATA FROM PRIOR MESSAGE */
   {start:"2027-06-28", end:"2027-07-04", A:"Kurian", B:"Genena", C:"Siew"}
 ];
 
+// ----------- GENENA TRANSPLANT CALLS -----------
+
+const transplantCalls = [
+  {start:"2026-09-14T07:00:00", end:"2026-09-18T12:00:00", team:"Consults"},
+  {start:"2026-11-09T07:00:00", end:"2026-11-15T23:59:59", team:"Rogers"},
+  {start:"2027-04-26T07:00:00", end:"2027-05-02T23:59:59", team:"Rogers"},
+  {start:"2027-06-01T07:00:00", end:"2027-06-06T12:00:00", team:"Consults"}
+];
+
 // ----------- FILTERS -----------
 
 const doctorFilter = document.getElementById("doctorFilter");
 const teamFilter = document.getElementById("teamFilter");
 
-// Populate doctors
 const allDoctors = new Set();
 generalData.forEach(w => {
   allDoctors.add(w.A);
   allDoctors.add(w.B);
   allDoctors.add(w.C);
 });
+allDoctors.add("Genena"); // ensure transplant included
 
 [...allDoctors].sort().forEach(d => {
   const opt = document.createElement("option");
@@ -201,7 +209,6 @@ generalData.forEach(w => {
 
 const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
   initialView: 'dayGridMonth',
-
   headerToolbar: {
     left: 'prev,next today',
     center: 'title',
@@ -213,30 +220,37 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
     const doc = doctorFilter.value;
     const team = teamFilter.value;
 
+    // ALL general weeks or filter by nephrologist
     let weeksToShow = generalData;
-
     if (doc !== "all") {
-      weeksToShow = generalData.filter(w =>
-        [w.A, w.B, w.C].includes(doc)
-      );
+      weeksToShow = generalData.filter(w => [w.A, w.B, w.C].includes(doc));
     }
 
     let outputEvents = [];
 
+    // General call weeks
     weeksToShow.forEach(w => {
       ["A","B","C"].forEach(t => {
-
         if (team !== "all" && team !== t) return;
-
         const doctorName = normalize(w[t]);
-
         outputEvents.push({
           title: `${doctorName} (Team ${t})`,
           start: w.start,
           end: w.end,
           color: getColor(doctorName)
         });
+      });
+    });
 
+    // Add Genena transplant calls
+    transplantCalls.forEach(t => {
+      if (doc !== "all" && doc !== "Genena") return;
+      if (team !== "all" && team !== t.team) return;
+      outputEvents.push({
+        title: `Genena (${t.team})`,
+        start: t.start,
+        end: t.end,
+        color: getColor("Genena")
       });
     });
 
@@ -245,7 +259,6 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
 });
 
 calendar.render();
-
 doctorFilter.onchange = () => calendar.refetchEvents();
 teamFilter.onchange = () => calendar.refetchEvents();
 
