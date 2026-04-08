@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- rebuild -->
 <meta charset="UTF-8">
 <title>Nephrology Call Schedule</title>
 
@@ -85,8 +84,11 @@ select {
 
 <script>
 
-// ----------- HELPERS -----------
+// ----------- DATA -----------
 
+const events = [];
+
+// Helper to normalize names
 function normalize(name) {
   if (!name) return "";
   name = name.trim();
@@ -94,33 +96,27 @@ function normalize(name) {
   return name;
 }
 
-// ----------- COLOR MAP -----------
-
-const doctorColors = {
+// Assign a consistent color to each nephrologist
+const colors = {
   "Genena": "#2a9d8f",
-  "Kurian": "#e76f51",
-  "Triozzi": "#264653",
+  "Triozzi": "#e63946",
   "Manolopoulou": "#f4a261",
-  "Sanghani": "#8ab17d",
-  "Burgner": "#6a4c93",
-  "Gardner": "#577590",
-  "Burdick": "#e63946",
-  "Lewis": "#457b9d",
-  "Steitz": "#ffb703",
-  "Huston": "#219ebc",
-  "Nunez": "#9b5de5",
-  "Luther": "#00b4d8",
-  "Ikizler": "#d00000",
-  "Umeukeje": "#8338ec",
-  "Siew": "#3a86ff"
+  "Kurian": "#457b9d",
+  "Steitz": "#a8dadc",
+  "Ikizler": "#1d3557",
+  "Luther": "#e76f51",
+  "Burdick": "#ffb703",
+  "Sanghani": "#6a4c93",
+  "Gardner": "#2b2d42",
+  "Umeukeje": "#8d99ae",
+  "Burgner": "#f94144",
+  "Huston": "#577590",
+  "Nunez": "#ff6b6b",
+  "Lewis": "#4cc9f0",
+  "Siew": "#43aa8b"
 };
 
-function getColor(name) {
-  return doctorColors[name] || "#666";
-}
-
-// ----------- GENERAL DATA -----------
-
+// GENERAL SCHEDULE
 const generalData = [
   {start:"2026-07-02", end:"2026-07-05", A:"Burgner", B:"Gardner", C:"Burdick"},
   {start:"2026-07-06", end:"2026-07-12", A:"Burgner", B:"Gardner", C:"Burdick"},
@@ -174,42 +170,73 @@ const generalData = [
   {start:"2027-06-07", end:"2027-06-13", A:"Burgner", B:"Sanghani", C:"Huston"},
   {start:"2027-06-14", end:"2027-06-20", A:"Steitz", B:"Burdick", C:"Manolopoulou"},
   {start:"2027-06-21", end:"2027-06-27", A:"Luther", B:"Nunez", C:"Gardner"},
-  {start:"2027-06-28", end:"2027-07-04", A:"Kurian", B:"Genena", C:"Siew"}
+  {start:"2027-06-28", end:"2027-07-04", A:"Kurian", B:"Genena", C:"Siew"},
 ];
 
-// ----------- GENENA TRANSPLANT CALLS -----------
+// Convert general schedule to events
+generalData.forEach(w => {
+  ["A","B","C"].forEach(team => {
+    events.push({
+      title: `${normalize(w[team])} (Team ${team})`,
+      start: w.start,
+      end: w.end,
+      team: team,
+      doctor: normalize(w[team]),
+      color: colors[normalize(w[team])] || "#999999"
+    });
+  });
+});
 
-const transplantCalls = [
-  {start:"2026-09-14T07:00:00", end:"2026-09-18T12:00:00", team:"Consults"},
-  {start:"2026-11-09T07:00:00", end:"2026-11-15T23:59:59", team:"Rogers"},
-  {start:"2027-04-26T07:00:00", end:"2027-05-02T23:59:59", team:"Rogers"},
-  {start:"2027-06-01T07:00:00", end:"2027-06-06T12:00:00", team:"Consults"}
+// TRANSPLANT CALLS FOR GENENA
+const transplantData = [
+  { start: "2026-09-14T07:00:00", end: "2026-09-18T12:00:00", team: "Consults" },
+  { start: "2026-11-09T07:00:00", end: "2026-11-15T23:59:00", team: "Rogers" },
+  { start: "2027-04-26T07:00:00", end: "2027-05-02T23:59:00", team: "Rogers" },
+  { start: "2027-06-01T07:00:00", end: "2027-06-06T12:00:00", team: "Consults" }
 ];
+
+transplantData.forEach(t => {
+  events.push({
+    title: `Genena (${t.team})`,
+    start: t.start,
+    end: t.end,
+    team: t.team,
+    doctor: "Genena",
+    color: colors["Genena"]
+  });
+});
 
 // ----------- FILTERS -----------
 
 const doctorFilter = document.getElementById("doctorFilter");
 const teamFilter = document.getElementById("teamFilter");
 
-const allDoctors = new Set();
-generalData.forEach(w => {
-  allDoctors.add(w.A);
-  allDoctors.add(w.B);
-  allDoctors.add(w.C);
-});
-allDoctors.add("Genena"); // ensure transplant included
-
-[...allDoctors].sort().forEach(d => {
+// Populate doctor dropdown
+const doctors = [...new Set(events.map(e => e.doctor))];
+doctors.forEach(d => {
   const opt = document.createElement("option");
   opt.value = d;
   opt.textContent = d;
   doctorFilter.appendChild(opt);
 });
 
+// ----------- DEFAULT DATE -----------
+
+function getDefaultDate() {
+  const today = new Date();
+  const start = new Date("2026-07-01");
+  const end = new Date("2027-06-30");
+
+  if (today < start) return start;
+  if (today > end) return end;
+  return today;
+}
+
 // ----------- CALENDAR -----------
 
 const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
   initialView: 'dayGridMonth',
+  initialDate: getDefaultDate(),
   headerToolbar: {
     left: 'prev,next today',
     center: 'title',
@@ -217,49 +244,35 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
   },
 
   events: function(fetchInfo, successCallback) {
+    let filtered = events;
 
     const doc = doctorFilter.value;
     const team = teamFilter.value;
 
-    // ALL general weeks or filter by nephrologist
-    let weeksToShow = generalData;
     if (doc !== "all") {
-      weeksToShow = generalData.filter(w => [w.A, w.B, w.C].includes(doc));
+      // Show all nephrologists on the same weeks as the selected doctor
+      const doctorWeeks = filtered
+        .filter(e => e.doctor === doc)
+        .map(e => ({ start: e.start, end: e.end }));
+
+      filtered = filtered.filter(e =>
+        doctorWeeks.some(w =>
+          (new Date(e.start) < new Date(w.end)) && (new Date(e.end) > new Date(w.start))
+        )
+      );
     }
 
-    let outputEvents = [];
+    if (team !== "all") {
+      filtered = filtered.filter(e => e.team === team);
+    }
 
-    // General call weeks
-    weeksToShow.forEach(w => {
-      ["A","B","C"].forEach(t => {
-        if (team !== "all" && team !== t) return;
-        const doctorName = normalize(w[t]);
-        outputEvents.push({
-          title: `${doctorName} (Team ${t})`,
-          start: w.start,
-          end: w.end,
-          color: getColor(doctorName)
-        });
-      });
-    });
-
-    // Add Genena transplant calls
-    transplantCalls.forEach(t => {
-      if (doc !== "all" && doc !== "Genena") return;
-      if (team !== "all" && team !== t.team) return;
-      outputEvents.push({
-        title: `Genena (${t.team})`,
-        start: t.start,
-        end: t.end,
-        color: getColor("Genena")
-      });
-    });
-
-    successCallback(outputEvents);
+    successCallback(filtered);
   }
 });
 
 calendar.render();
+
+// Refresh on filter change
 doctorFilter.onchange = () => calendar.refetchEvents();
 teamFilter.onchange = () => calendar.refetchEvents();
 
