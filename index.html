@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nephrology Call Schedule</title>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #f5f7fa;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: 15px 25px;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.header img {
+  height: 60px;
+  margin-right: 20px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.controls {
+  padding: 15px 25px;
+  background: #fff;
+  display: flex;
+  gap: 15px;
+  border-bottom: 1px solid #ddd;
+}
+
+select {
+  padding: 8px;
+  font-size: 14px;
+}
+
+#calendar {
+  max-width: 1100px;
+  margin: 20px auto;
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.fc-event {
+  font-size: 12px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <img src="logo.png">
+  <div class="title">Nephrology Call Schedule 2026–2027</div>
+</div>
+
+<div class="controls">
+  <select id="doctorFilter">
+    <option value="all">All Nephrologists</option>
+  </select>
+
+  <select id="teamFilter">
+    <option value="all">All Teams</option>
+    <option value="A">Team A</option>
+    <option value="B">Team B</option>
+    <option value="C">Team C</option>
+    <option value="Consults">Consults</option>
+    <option value="Rogers">Rogers</option>
+  </select>
+</div>
+
+<div id="calendar"></div>
+
+<script>
+
+// ----------- HELPERS -----------
+
+function normalize(name) {
+  if (!name) return "";
+  name = name.trim();
+  if (name.toLowerCase().includes("genena") || name.toLowerCase().includes("kareem")) return "Genena";
+  return name;
+}
+
+// ----------- COLOR MAP -----------
+
+const doctorColors = {
+  "Genena": "#2a9d8f",
+  "Kurian": "#e76f51",
+  "Triozzi": "#264653",
+  "Manolopoulou": "#f4a261",
+  "Sanghani": "#8ab17d",
+  "Burgner": "#6a4c93",
+  "Gardner": "#577590",
+  "Burdick": "#e63946",
+  "Lewis": "#457b9d",
+  "Steitz": "#ffb703",
+  "Huston": "#219ebc",
+  "Nunez": "#9b5de5",
+  "Luther": "#00b4d8",
+  "Ikizler": "#d00000",
+  "Umeukeje": "#8338ec",
+  "Siew": "#3a86ff"
+};
+
+// fallback color if new name appears
+function getColor(name) {
+  return doctorColors[name] || "#666";
+}
+
+// ----------- DATA -----------
+
+const generalData = [ /* FULL DATA FROM PRIOR MESSAGE */ 
+  {start:"2026-07-02", end:"2026-07-05", A:"Burgner", B:"Gardner", C:"Burdick"},
+  {start:"2026-07-06", end:"2026-07-12", A:"Burgner", B:"Gardner", C:"Burdick"},
+  {start:"2026-07-13", end:"2026-07-19", A:"Triozzi", B:"Manolopoulou", C:"Genena"},
+  {start:"2026-07-20", end:"2026-07-26", A:"Triozzi", B:"Sanghani", C:"Nunez"},
+  {start:"2026-07-27", end:"2026-08-02", A:"Lewis", B:"Steitz", C:"Huston"},
+  {start:"2026-08-03", end:"2026-08-09", A:"Lewis", B:"Manolopoulou", C:"Burgner"},
+  {start:"2026-08-10", end:"2026-08-16", A:"Gardner", B:"Sanghani", C:"Burgner"},
+  {start:"2026-08-17", end:"2026-08-23", A:"Kurian", B:"Genena", C:"Steitz"},
+  {start:"2026-08-24", end:"2026-08-30", A:"Triozzi", B:"Huston", C:"Nunez"},
+  {start:"2026-08-31", end:"2026-09-06", A:"Triozzi", B:"Luther", C:"Kurian"},
+  {start:"2026-09-07", end:"2026-09-13", A:"Nunez", B:"Burdick", C:"Manolopoulou"},
+  {start:"2026-09-14", end:"2026-09-20", A:"Sanghani", B:"Triozzi", C:"Gardner"},
+  {start:"2026-09-21", end:"2026-09-27", A:"Lewis", B:"Triozzi", C:"Luther"},
+  {start:"2026-09-28", end:"2026-10-04", A:"Lewis", B:"Steitz", C:"Burdick"},
+  {start:"2026-10-05", end:"2026-10-11", A:"Ikizler", B:"Kurian", C:"Genena"},
+  {start:"2026-10-12", end:"2026-10-18", A:"Gardner", B:"Nunez", C:"Burdick"},
+  {start:"2026-10-19", end:"2026-10-25", A:"Huston", B:"Manolopoulou", C:"Sanghani"},
+  {start:"2026-10-26", end:"2026-11-01", A:"Luther", B:"Burgner", C:"Gardner"},
+  {start:"2026-11-02", end:"2026-11-08", A:"Ikizler", B:"Burgner", C:"Kurian"},
+  {start:"2026-11-09", end:"2026-11-15", A:"Huston", B:"Burdick", C:"Sanghani"},
+  {start:"2026-11-16", end:"2026-11-22", A:"Manolopoulou", B:"Luther", C:"Genena"},
+  {start:"2026-11-23", end:"2026-11-29", A:"Lewis", B:"Nunez", C:"Steitz"},
+  {start:"2026-11-30", end:"2026-12-06", A:"Lewis", B:"Sanghani", C:"Kurian"},
+  {start:"2026-12-07", end:"2026-12-13", A:"Umeukeje", B:"Nunez", C:"Burgner"},
+  {start:"2026-12-14", end:"2026-12-20", A:"Steitz", B:"Ikizler", C:"Manolopoulou"},
+  {start:"2026-12-21", end:"2026-12-27", A:"Kurian", B:"Genena", C:"Burdick"},
+  {start:"2026-12-28", end:"2027-01-03", A:"Luther", B:"Burgner", C:"Gardner"},
+  {start:"2027-01-04", end:"2027-01-10", A:"Manolopoulou", B:"Burgner", C:"Lewis"},
+  {start:"2027-01-11", end:"2027-01-17", A:"Sanghani", B:"Genena", C:"Huston"},
+  {start:"2027-01-18", end:"2027-01-24", A:"Kurian", B:"Steitz", C:"Gardner"},
+  {start:"2027-01-25", end:"2027-01-31", A:"Burdick", B:"Lewis", C:"Nunez"},
+  {start:"2027-02-01", end:"2027-02-07", A:"Manolopoulou", B:"Lewis", C:"Sanghani"},
+  {start:"2027-02-08", end:"2027-02-14", A:"Steitz", B:"Huston", C:"Siew"},
+  {start:"2027-02-15", end:"2027-02-21", A:"Kurian", B:"Gardner", C:"Burdick"},
+  {start:"2027-02-22", end:"2027-02-28", A:"Nunez", B:"Luther", C:"Burgner"},
+  {start:"2027-03-01", end:"2027-03-07", A:"Umeukeje", B:"Sanghani", C:"Burgner"},
+  {start:"2027-03-08", end:"2027-03-14", A:"Huston", B:"Steitz", C:"Manolopoulou"},
+  {start:"2027-03-15", end:"2027-03-21", A:"Gardner", B:"Genena", C:"Burdick"},
+  {start:"2027-03-22", end:"2027-03-28", A:"Kurian", B:"Luther", C:"Lewis"},
+  {start:"2027-03-29", end:"2027-04-04", A:"Ikizler", B:"Nunez", C:"Lewis"},
+  {start:"2027-04-05", end:"2027-04-11", A:"Sanghani", B:"Gardner", C:"Burdick"},
+  {start:"2027-04-12", end:"2027-04-18", A:"Umeukeje", B:"Genena", C:"Steitz"},
+  {start:"2027-04-19", end:"2027-04-25", A:"Manolopoulou", B:"Ikizler", C:"Luther"},
+  {start:"2027-04-26", end:"2027-05-02", A:"Burgner", B:"Nunez", C:"Kurian"},
+  {start:"2027-05-03", end:"2027-05-09", A:"Burgner", B:"Genena", C:"Sanghani"},
+  {start:"2027-05-10", end:"2027-05-16", A:"Huston", B:"Steitz", C:"Burdick"},
+  {start:"2027-05-17", end:"2027-05-23", A:"Umeukeje", B:"Luther", C:"Ikizler"},
+  {start:"2027-05-24", end:"2027-05-30", A:"Lewis", B:"Manolopoulou", C:"Nunez"},
+  {start:"2027-05-31", end:"2027-06-06", A:"Lewis", B:"Kurian", C:"Gardner"},
+  {start:"2027-06-07", end:"2027-06-13", A:"Burgner", B:"Sanghani", C:"Huston"},
+  {start:"2027-06-14", end:"2027-06-20", A:"Steitz", B:"Burdick", C:"Manolopoulou"},
+  {start:"2027-06-21", end:"2027-06-27", A:"Luther", B:"Nunez", C:"Gardner"},
+  {start:"2027-06-28", end:"2027-07-04", A:"Kurian", B:"Genena", C:"Siew"}
+];
+
+// ----------- FILTERS -----------
+
+const doctorFilter = document.getElementById("doctorFilter");
+const teamFilter = document.getElementById("teamFilter");
+
+// Populate doctors
+const allDoctors = new Set();
+generalData.forEach(w => {
+  allDoctors.add(w.A);
+  allDoctors.add(w.B);
+  allDoctors.add(w.C);
+});
+
+[...allDoctors].sort().forEach(d => {
+  const opt = document.createElement("option");
+  opt.value = d;
+  opt.textContent = d;
+  doctorFilter.appendChild(opt);
+});
+
+// ----------- CALENDAR -----------
+
+const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+  initialView: 'dayGridMonth',
+
+  headerToolbar: {
+    left: 'prev,next today',
+    center: 'title',
+    right: 'dayGridMonth,timeGridWeek'
+  },
+
+  events: function(fetchInfo, successCallback) {
+
+    const doc = doctorFilter.value;
+    const team = teamFilter.value;
+
+    let weeksToShow = generalData;
+
+    if (doc !== "all") {
+      weeksToShow = generalData.filter(w =>
+        [w.A, w.B, w.C].includes(doc)
+      );
+    }
+
+    let outputEvents = [];
+
+    weeksToShow.forEach(w => {
+      ["A","B","C"].forEach(t => {
+
+        if (team !== "all" && team !== t) return;
+
+        const doctorName = normalize(w[t]);
+
+        outputEvents.push({
+          title: `${doctorName} (Team ${t})`,
+          start: w.start,
+          end: w.end,
+          color: getColor(doctorName)
+        });
+
+      });
+    });
+
+    successCallback(outputEvents);
+  }
+});
+
+calendar.render();
+
+doctorFilter.onchange = () => calendar.refetchEvents();
+teamFilter.onchange = () => calendar.refetchEvents();
+
+</script>
+
+</body>
+</html>
